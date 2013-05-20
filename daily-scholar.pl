@@ -38,7 +38,7 @@ my $thisUID;
 my $paper;
 my $mail_user;
 my $mail_pass;
-my $email = 'bsima@me.com';
+my $email;
 
 
 # ============
@@ -56,6 +56,17 @@ $mail_user = "$config[0]";
 chomp($mail_user);
 $mail_pass = "$config[1]";
 chomp($mail_pass);
+
+# Get email for mailer
+# TODO: make this able to send to multiple
+#       email addresses, all listed in a
+#       text file or something
+
+open(FILE,"emails.txt");
+my @emails = <FILE>;
+close FILE;
+$email = $emails[0];
+chomp($email);
 
 sendMail($paper, $email);
 
