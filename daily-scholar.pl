@@ -27,7 +27,7 @@ use Net::SMTP::TLS;            # For emailing
 # 4) Download the 10 most cited papers (UID's) from the search
 # 5) Choose a random paper UID
 # 6) Format the paper in text/HTML
-# 7) Email the paper to bsima@me.com
+# 7) Email the paper to an email address
 
 # ============
 # Variables
