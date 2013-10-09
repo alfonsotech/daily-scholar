@@ -14,61 +14,46 @@
 
 use strict;
 use warnings;
-# use diagnostics;
+use diagnostics;
+# config.pm brings in the following variables:
+#   %interests
+#   %users
+#   $mailUser
+#   $mailPass
+#   $smtpAddr
+#   $mailHello
+#   $mailPort
+package config;
 
 use LWP::Simple;               # For get();
 use List::Util qw( shuffle );  # For the shuffle();
 use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 use Net::SMTP::TLS;            # For emailing
 
-# 1) Open a file of interests
-# 2) Randomly choose a line and copy the phrase
-# 3) Build an Eutils query from that phrase
-# 4) Download the 10 most cited papers (UID's) from the search
-# 5) Choose a random paper UID
-# 6) Format the paper in text/HTML
-# 7) Email the paper to an email address
-
 # ============
-# Variables
+# Var matey!
 # ============
-my $interests = './interests.txt';
 my $query;
-my $thisUID;
-my $paper;
-my $mail_user;
-my $mail_pass;
 my $email;
-
+my $paper;
+my $thisUID;
 
 # ============
 # Main
 # ============
 
-chooseInterest();
-getUID($query);
+foreach my $user (config::%users) {
 
-# Get the creds for mailer
-open(FILE,"config.txt");
-my @config = <FILE>;
-close FILE;
-$mail_user = "$config[0]";
-chomp($mail_user);
-$mail_pass = "$config[1]";
-chomp($mail_pass);
+    $email = config::%users{$user};
 
-# Get email for mailer
-# TODO: make this able to send to multiple
-#       email addresses, all listed in a
-#       text file or something
+    chooseInterest($user);
+    getUID($query); 
 
-open(FILE,"emails.txt");
-my @emails = <FILE>;
-close FILE;
-$email = $emails[0];
-chomp($email);
+    sendMail($email, $query, $paper, $thisUID);
 
-sendMail($paper, $email);
+    logEvents($user, $email, $query, $thisUID);
+
+}
 
 
 # ============
@@ -83,16 +68,16 @@ sendMail($paper, $email);
 # ========================================
 
 sub chooseInterest {
-  open(FILE,$interests) || die "Couldn't open interests file!";
-  my @interest = <FILE>;
-  close FILE;
+ 
+    my ( $user ) = @_;
+
+    my @interests = config::%interests{$user};
+
+    my @shuffled = shuffle @interests;
   
-  my @shuffled = shuffle @interest;
+    $query = $shuffled[1];
   
-  $query = $shuffled[1];
-  
-  print $query;
-  return $query;
+    return $query;
   
 }
 
@@ -105,34 +90,34 @@ sub chooseInterest {
 # ========================================
 
 sub getUID {
-  
-  # First, build the Eutils query
-  my $utils = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils'; # Base URL for searches
-  my $db = 'pubmed'; # Default to PubMed database; this may be changed.
-  my $retmax = 10; # Get 10 results from Eutils
-  
-  my $esearch = $utils . '/esearch.fcgi?db=' . $db . '&retmax=' . $retmax . '&term=';
-  
-  my $esearch_result = get( $esearch . $query ); # Downloads the XML
-  
-  # Second, extract the UIDs and shuffle
-  my @matches = $esearch_result =~ m(<Id>(.*)</Id>)g;  # print "$_\n" for @matches;
-  my @shuffled = shuffle @matches;
-  
-  # Third, pick one of the UIDs to use for the Efetch
-  $thisUID = $shuffled[1];
-  
-  # Fourth, fetch the paper
-  my $report = 'abstract';    # We only want to fetch the abstract
-  my $mode   = 'text';        # We want a text output, not XML
 
-  my $efetch = $utils . '/efetch.fcgi?db=' . $db . '&rettype=' . $report . '&retmode=' . $mode . '&id=' . $thisUID;
-  my $efetch_result = get($efetch);
+    # First, build the Eutils query
+    my $utils = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils'; # Base URL for searches
+    my $db = 'pubmed'; # Default to PubMed database; this may be changed.
+    my $retmax = 10; # Get 10 results from Eutils
+    
+    my $esearch = $utils . '/esearch.fcgi?db=' . $db . '&retmax=' . $retmax . '&term=';
+    
+    my $esearch_result = get( $esearch . $query ); # Downloads the XML
+    
+    # Second, extract the UIDs and shuffle
+    my @matches = $esearch_result =~ m(<Id>(.*)</Id>)g;  # print "$_\n" for @matches;
+    my @shuffled = shuffle @matches;
   
-  $paper = $efetch_result;
+    # Third, pick one of the UIDs to use for the Efetch
+    $thisUID = $shuffled[1];
   
-  # print $paper;
-  return $paper;
+    # Fourth, fetch the paper
+    my $report = 'abstract';    # We only want to fetch the abstract
+    my $mode   = 'text';        # We want a text output, not XML
+    
+    my $efetch = $utils . '/efetch.fcgi?db=' . $db . '&rettype=' . $report . '&retmode=' . $mode . '&id=' . $thisUID;
+    my $efetch_result = get($efetch);
+    
+    $paper = $efetch_result;
+    
+    # print $paper;
+    return ( $paper, $thisUID );
 
 }
 
@@ -141,38 +126,47 @@ sub getUID {
 #    Name: sendMail
 # Purpose: Sends the paper to the
 #          specified email address
-#  Params: paper, email
+#  Params: $email, $query, $paper, $thisUID
 # ========================================
 
 sub sendMail {
-  
-  print "Sending message\n";
 
-  my $mailer = new Net::SMTP::TLS(
-    'smtp.gmail.com',
-    Hello    =>      'smtp.gmail.com',
-    Port     =>      587,
-    User     =>      $mail_user,     # User (does not need @gmail.com)
-    Password =>      $mail_pass);    # Password goes here in plaintext
-  $mailer->mail('');
-  $mailer->to("$email");
-  $mailer->data;
-  $mailer->datasend("Todays Subject = " . $query);
-  $mailer->datasend("\n\n");
-  $mailer->datasend("$paper");
-  $mailer->datasend("\n\n");
-  $mailer->datasend("Read more: http://www.ncbi.nlm.nih.gov/pubmed/?term=" . $thisUID);
-  $mailer->dataend;
-  $mailer->quit;
-  
-  print "Message sent\n";
+    # my ( $email, $query, $paper, $thisUID ) = @_;
+
+    print "Sending message\n";
+    
+    my $mailer = new Net::SMTP::TLS(
+      $smtpAddr,
+      Hello    => $mailHello,
+      Port     => $mailPort,
+      User     => $mailUser,
+      Password => $mailPass
+      );   
+    $mailer->mail('');
+    $mailer->to("$email");
+    $mailer->data;
+    $mailer->datasend("Todays Subject = " . $query);
+    $mailer->datasend("\n\n");
+    $mailer->datasend("$paper");
+    $mailer->datasend("\n\n");
+    $mailer->datasend("Read more: http://www.ncbi.nlm.nih.gov/pubmed/?term=" . $thisUID);
+    $mailer->datasend("\n\n");
+    $mailer->datasend("Don't be smart. Be curious.");
+    $mailer->datasend("\n\n");
+    $mailer->datasend("Love Always,\n");
+    $mailer->datasend("Ben\n");
+    $mailer->dataend;
+    $mailer->quit;
+    
+    print "Message sent\n";
 
 }
 
 # I should finish sub this sometime...
-# sub logEvents {
-#   chomp (my $time = `perl -le "print scalar localtime"`);
-#   open (FILE, " >> results.log");
-#   print FILE "($time) $_[0]: \"$paper\"\n";
-#   close FILE;
-# }
+sub logEvents {
+   
+    chomp (my $time = `perl -le "print scalar localtime"`);
+    open (FILE, " >>results.log");
+    print FILE "($time) $user ($email): \"$query\" | UID: $thisUID\n";
+    close FILE;
+}
