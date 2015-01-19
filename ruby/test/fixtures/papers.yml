@@ -1,0 +1,37 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  source: MyString
+  id: MyString
+  title: MyString
+  author: MyString
+  container_title: MyString
+  publisher: MyString
+  publisher_place: MyString
+  issn: MyString
+  issued: 2015-01-18
+  start_page: 1
+  end_page: 1
+  volume: 1
+  issue: 1
+  pmcid: MyString
+  type: 
+  body: MyText
+
+two:
+  source: MyString
+  id: MyString
+  title: MyString
+  author: MyString
+  container_title: MyString
+  publisher: MyString
+  publisher_place: MyString
+  issn: MyString
+  issued: 2015-01-18
+  start_page: 1
+  end_page: 1
+  volume: 1
+  issue: 1
+  pmcid: MyString
+  type: 
+  body: MyText
