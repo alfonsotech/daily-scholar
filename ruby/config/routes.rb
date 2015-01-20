@@ -1,14 +1,13 @@
 Rails.application.routes.draw do
-  get 'paper/read'
-
-  get 'paper/save'
-
-  get 'paper/star'
-
-  get 'paper/download'
-
-  get 'welcome/index'
-
+  resources :papers do
+    member do
+      get :read
+      get :save
+      get :star
+      get :download
+    end
+  end
+  
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 
