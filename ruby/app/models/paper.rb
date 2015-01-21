@@ -68,7 +68,7 @@ class Paper < ActiveRecord::Base
       @papers[pid] = {
         title: Nokogiri::XML(s.body).at_xpath(@title_xpath).content,
         abstract: Nokogiri::XML(s.body).at_xpath(@abstract_xpath).content,
-        link: @article_url + Nokogiri::XML(s.body).at_xpath(@doi_xpath).content
+        link: @doi_url + Nokogiri::XML(s.body).at_xpath(@doi_xpath).content
       }
     end
   end
